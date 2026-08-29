@@ -155,7 +155,9 @@ function ClientsPanel({ onSelect, selectedId }) {
             <tbody>
               {clients.map((c,i)=>(
                 <tr key={c.client_id} style={{borderBottom:`1px solid ${C.borderL}`,background:selectedId===c.client_id?C.sageL:i%2===0?C.white:C.cream}}>
-                  <td style={{padding:"10px 12px",fontWeight:600,color:C.forest}}>{c.name}</td>
+                  <td style={{padding:"10px 12px",fontWeight:600,color:C.forest}}>
+                    <a href={`/?c=${c.client_id}`} target="_blank" rel="noopener noreferrer" style={{color:C.sage,textDecoration:"none",fontWeight:600}} onMouseEnter={e=>e.target.style.textDecoration="underline"} onMouseLeave={e=>e.target.style.textDecoration="none"}>{c.name}</a>
+                  </td>
                   <td style={{padding:"10px 12px",fontFamily:"monospace",color:C.sageMid,fontSize:12}}>?c={c.client_id}</td>
                   <td style={{padding:"10px 12px",color:C.textMid,fontSize:12}}>{c.brand_title||"—"}</td>
                   <td style={{padding:"10px 12px",color:C.textMid,fontSize:12}}>{c.active_channels||0}</td>

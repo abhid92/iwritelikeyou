@@ -22,8 +22,12 @@ async function handleClients(req, res) {
       const client = Array.isArray(data) ? data[0] : null;
       return res.status(client ? 200 : 404).json(client ? { client } : { error: "Not found" });
     }
-    const { data } = await get("clients?order=created_at.desc&select=*");
-    return res.status(200).json({ clients: Array.isArray(data) ? data : [] });
+    const { data } = await get("clients?order=created_at.desc&select=*,client_channels(channel_id,enabled)");
+    const clients = (Array.isArray(data) ? data : []).map(c => ({
+      ...c,
+      active_channels: (c.client_channels || []).filter(ch => ch.enabled).length,
+    }));
+    return res.status(200).json({ clients });
   }
   if (req.method === "POST") {
     const { client_id, name, brand_title, tagline, about_text, logo_url, primary_color, accent_color, bg_color } = req.body || {};

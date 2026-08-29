@@ -157,11 +157,11 @@ async function handleAiConfig(req, res) {
     return res.status(200).json({ provider: row.provider, model: row.model, apiKeySet: !!row.api_key_encrypted, updatedAt: row.updated_at });
   }
   if (req.method === "PUT") {
-    const { provider, model, apiKey } = req.body || {};
+    const { provider, model, api_key } = req.body || {};
     const row = { client_id: clientId, updated_at: new Date().toISOString() };
     if (provider) row.provider = provider;
     if (model)    row.model    = model;
-    if (apiKey)   row.api_key_encrypted = encrypt(apiKey);
+    if (api_key)  row.api_key_encrypted = encrypt(api_key);
     await upsert("client_ai_config?on_conflict=client_id", row);
     return res.status(200).json({ success: true });
   }

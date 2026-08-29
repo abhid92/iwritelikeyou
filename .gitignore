@@ -1,5 +1,8 @@
 node_modules/
+dev-server.js
 .env.local
 .env
 .DS_Store
 .vercel/
+.vercel
+.env*

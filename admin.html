@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>iWriteLikeYou — Admin</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Inter','Segoe UI',system-ui,sans-serif;font-size:14px;}
+select{appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236B8F7E' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;}
+::-webkit-scrollbar{width:4px;} ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:2px;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback } = React;
+
+// ── Palette ───────────────────────────────────────────────────────
+const C = {
+  sage:"#3D6B5A", sageL:"#E4EDEA", sageMid:"#6B8F7E", forest:"#2A3D35",
+  gold:"#B8956A", cream:"#F7F3EE", white:"#fff",
+  border:"#CCDDD6", borderL:"#DFE9E5",
+  textMid:"#5A7268", textLight:"#8FA89E",
+  error:"#C0392B", errorBg:"#FFF0EE",
+  successBg:"#E4EDEA", successText:"#2A3D35",
+  bg:"#F1F5F2",
+};
+
+// ── API helper ────────────────────────────────────────────────────
+async function api(path, opts = {}) {
+  const token = localStorage.getItem("iwly_admin_token");
+  const headers = { "Content-Type":"application/json", ...(token ? { Authorization:`Bearer ${token}` } : {}) };
+  const r = await fetch(path, { headers, ...opts });
+  const d = await r.json().catch(() => ({}));
+  return { ok: r.ok, status: r.status, data: d };
+}
+
+// ── Shared UI atoms ───────────────────────────────────────────────
+const inp = { width:"100%", border:`1px solid ${C.border}`, borderRadius:5, padding:"8px 10px", fontSize:13, fontFamily:"inherit", outline:"none", color:C.forest, background:C.white };
+const btnP = { background:C.sage, color:C.white, border:"none", borderRadius:5, cursor:"pointer", fontWeight:600, fontFamily:"inherit", padding:"8px 16px", fontSize:13 };
+const btnD = { background:"transparent", color:C.error, border:`1px solid ${C.error}`, borderRadius:5, cursor:"pointer", fontFamily:"inherit", padding:"6px 12px", fontSize:12 };
+const btnO = { background:"transparent", color:C.sage, border:`1.5px solid ${C.sage}`, borderRadius:5, cursor:"pointer", fontFamily:"inherit", padding:"7px 14px", fontSize:13, fontWeight:600 };
+
+function Input({ label, ...p }) {
+  return (
+    <div style={{marginBottom:12}}>
+      {label && <label style={{display:"block",fontSize:11,letterSpacing:"1.5px",textTransform:"uppercase",color:C.textMid,marginBottom:5}}>{label}</label>}
+      <input style={inp} {...p}/>
+    </div>
+  );
+}
+function TextArea({ label, rows=4, ...p }) {
+  return (
+    <div style={{marginBottom:12}}>
+      {label && <label style={{display:"block",fontSize:11,letterSpacing:"1.5px",textTransform:"uppercase",color:C.textMid,marginBottom:5}}>{label}</label>}
+      <textarea rows={rows} style={{...inp,resize:"vertical",lineHeight:1.6}} {...p}/>
+    </div>
+  );
+}
+function Select({ label, options, ...p }) {
+  return (
+    <div style={{marginBottom:12}}>
+      {label && <label style={{display:"block",fontSize:11,letterSpacing:"1.5px",textTransform:"uppercase",color:C.textMid,marginBottom:5}}>{label}</label>}
+      <select style={{...inp,cursor:"pointer"}} {...p}>
+        {options.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+    </div>
+  );
+}
+function Toast({ msg, type="success" }) {
+  if (!msg) return null;
+  return <div style={{padding:"10px 16px",borderRadius:6,background:type==="error"?C.errorBg:C.successBg,color:type==="error"?C.error:C.forest,border:`1px solid ${type==="error"?C.error:C.border}`,marginBottom:16,fontSize:13}}>{msg}</div>;
+}
+function SectionCard({ title, children, action }) {
+  return (
+    <div style={{background:C.white,border:`1px solid ${C.borderL}`,borderRadius:10,marginBottom:20,overflow:"hidden"}}>
+      <div style={{padding:"12px 20px",borderBottom:`1px solid ${C.borderL}`,background:C.sageL,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <span style={{fontWeight:600,fontSize:14,color:C.forest}}>{title}</span>
+        {action}
+      </div>
+      <div style={{padding:20}}>{children}</div>
+    </div>
+  );
+}
+
+// ── Login ─────────────────────────────────────────────────────────
+function AdminLogin({ onLogin }) {
+  const [pw, setPw] = useState(""); const [err, setErr] = useState(""); const [loading, setLoading] = useState(false);
+  const submit = async () => {
+    setLoading(true); setErr("");
+    const { ok, data } = await api("/api/auth/admin", { method:"POST", body:JSON.stringify({ password:pw }) });
+    setLoading(false);
+    if (ok) { localStorage.setItem("iwly_admin_token", data.token); onLogin(); }
+    else setErr(data.error || "Invalid password.");
+  };
+  return (
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:C.cream}}>
+      <div style={{background:C.white,border:`1px solid ${C.borderL}`,borderRadius:12,padding:36,width:340,boxShadow:"0 2px 16px rgba(61,107,90,0.1)"}}>
+        <div style={{textAlign:"center",marginBottom:24}}>
+          <div style={{width:48,height:48,borderRadius:10,background:C.sage,color:C.white,fontSize:20,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 12px"}}>A</div>
+          <div style={{fontSize:16,fontWeight:700,color:C.forest}}>iWriteLikeYou</div>
+          <div style={{fontSize:12,color:C.textLight,marginTop:3}}>Super Admin</div>
+        </div>
+        <Input placeholder="Admin password" type="password" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()}/>
+        {err && <div style={{fontSize:12,color:C.error,marginBottom:10}}>{err}</div>}
+        <button onClick={submit} disabled={loading} style={{...btnP,width:"100%"}}>{loading?"…":"Sign In"}</button>
+      </div>
+    </div>
+  );
+}
+
+// ── Clients panel ─────────────────────────────────────────────────
+function ClientsPanel({ onSelect, selectedId }) {
+  const [clients, setClients] = useState([]);
+  const [name, setName]   = useState(""); const [slug, setSlug] = useState("");
+  const [msg, setMsg]     = useState(""); const [loading, setLoading] = useState(false);
+
+  const load = async () => {
+    const { data } = await api("/api/admin/clients");
+    setClients(Array.isArray(data.clients) ? data.clients : []);
+  };
+  useEffect(() => { load(); }, []);
+
+  const create = async () => {
+    if (!name || !slug) return;
+    setLoading(true);
+    const { ok, data } = await api("/api/admin/clients", { method:"POST", body:JSON.stringify({ name, client_id:slug }) });
+    setLoading(false);
+    if (ok) { setMsg("Client created!"); setName(""); setSlug(""); load(); }
+    else setMsg(`Error: ${data.error}`);
+    setTimeout(()=>setMsg(""),4000);
+  };
+
+  return (
+    <div>
+      <SectionCard title="Add New Client">
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr auto",gap:10,alignItems:"end"}}>
+          <Input label="Client Name" placeholder="e.g. Dr. Priya" value={name} onChange={e=>setName(e.target.value)}/>
+          <Input label="Slug (URL param)" placeholder="e.g. priya" value={slug} onChange={e=>setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,""))}/>
+          <div style={{marginBottom:12}}><button onClick={create} disabled={loading||!name||!slug} style={btnP}>{loading?"Creating…":"Create"}</button></div>
+        </div>
+        {msg && <Toast msg={msg} type={msg.startsWith("Error")?"error":"success"}/>}
+      </SectionCard>
+
+      <SectionCard title="All Clients">
+        {clients.length === 0 ? <div style={{color:C.textLight,fontSize:13}}>No clients yet.</div> :
+          <table style={{width:"100%",borderCollapse:"collapse"}}>
+            <thead><tr style={{background:C.sageL}}>
+              {["Name","Client ID","Branding","Channels","Created",""].map(h=><th key={h} style={{padding:"8px 12px",textAlign:"left",fontSize:10,letterSpacing:"1.5px",textTransform:"uppercase",color:C.textMid,borderBottom:`1px solid ${C.border}`}}>{h}</th>)}
+            </tr></thead>
+            <tbody>
+              {clients.map((c,i)=>(
+                <tr key={c.client_id} style={{borderBottom:`1px solid ${C.borderL}`,background:selectedId===c.client_id?C.sageL:i%2===0?C.white:C.cream}}>
+                  <td style={{padding:"10px 12px",fontWeight:600,color:C.forest}}>{c.name}</td>
+                  <td style={{padding:"10px 12px",fontFamily:"monospace",color:C.sageMid,fontSize:12}}>?c={c.client_id}</td>
+                  <td style={{padding:"10px 12px",color:C.textMid,fontSize:12}}>{c.brand_title||"—"}</td>
+                  <td style={{padding:"10px 12px",color:C.textMid,fontSize:12}}>{c.active_channels||0}</td>
+                  <td style={{padding:"10px 12px",color:C.textMid,fontSize:12}}>{new Date(c.created_at).toLocaleDateString()}</td>
+                  <td style={{padding:"10px 12px"}}>
+                    <button onClick={()=>onSelect(c.client_id)} style={{...btnO,padding:"5px 12px",fontSize:11,fontWeight:600,background:selectedId===c.client_id?C.sage:C.white,color:selectedId===c.client_id?C.white:C.sage}}>
+                      {selectedId===c.client_id?"Managing":"Manage →"}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        }
+      </SectionCard>
+    </div>
+  );
+}
+
+// ── Branding ──────────────────────────────────────────────────────
+function BrandingPanel({ clientId }) {
+  const [form, setForm] = useState({ brand_title:"", tagline:"", logo_url:"", about_text:"", primary_color:"#3D6B5A", accent_color:"#B8956A", bg_color:"#F7F3EE" });
+  const [msg, setMsg]   = useState("");
+  const set = k => e => setForm(f=>({...f,[k]:e.target.value}));
+
+  useEffect(() => {
+    api(`/api/admin/clients?client_id=${clientId}`).then(({ data }) => {
+      if (data.client) setForm(f=>({...f,...data.client}));
+    });
+  }, [clientId]);
+
+  const save = async () => {
+    const { ok, data } = await api("/api/admin/clients", { method:"PUT", body:JSON.stringify({ client_id:clientId, ...form }) });
+    setMsg(ok ? "Saved!" : `Error: ${data.error}`);
+    setTimeout(()=>setMsg(""),4000);
+  };
+
+  return (
+    <SectionCard title="Branding">
+      {msg && <Toast msg={msg} type={msg.startsWith("Error")?"error":"success"}/>}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 20px"}}>
+        <Input label="Brand Title" value={form.brand_title} onChange={set("brand_title")} placeholder="iWriteLikeYou"/>
+        <Input label="Tagline" value={form.tagline} onChange={set("tagline")} placeholder="AI content in your voice"/>
+        <Input label="Logo URL" value={form.logo_url} onChange={set("logo_url")} placeholder="https://..."/>
+        <div/>
+        <div style={{marginBottom:12}}>
+          <label style={{display:"block",fontSize:11,letterSpacing:"1.5px",textTransform:"uppercase",color:C.textMid,marginBottom:5}}>Primary Color</label>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <input type="color" value={form.primary_color} onChange={set("primary_color")} style={{width:36,height:36,border:"none",padding:0,cursor:"pointer",borderRadius:4,background:"none"}}/>
+            <input value={form.primary_color} onChange={set("primary_color")} style={{...inp,flex:1}}/>
+          </div>
+        </div>
+        <div style={{marginBottom:12}}>
+          <label style={{display:"block",fontSize:11,letterSpacing:"1.5px",textTransform:"uppercase",color:C.textMid,marginBottom:5}}>Accent Color</label>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <input type="color" value={form.accent_color} onChange={set("accent_color")} style={{width:36,height:36,border:"none",padding:0,cursor:"pointer",borderRadius:4,background:"none"}}/>
+            <input value={form.accent_color} onChange={set("accent_color")} style={{...inp,flex:1}}/>
+          </div>
+        </div>
+      </div>
+      <TextArea label="About Text (shown at top of generate page)" value={form.about_text} onChange={set("about_text")} rows={3}/>
+      <button onClick={save} style={btnP}>Save Branding</button>
+    </SectionCard>
+  );
+}
+
+// ── Channels ──────────────────────────────────────────────────────
+const DEFAULT_WORD_OPTIONS = {
+  linkedin:  [{value:"short",label:"Short (~150 words)",words:150},{value:"medium",label:"Medium (~300 words)",words:300},{value:"long",label:"Long (~500 words)",words:500}],
+  instagram: [{value:"short",label:"Short (~80 words)",words:80},{value:"medium",label:"Medium (~150 words)",words:150}],
+  facebook:  [{value:"short",label:"Short (~150 words)",words:150},{value:"medium",label:"Medium (~300 words)",words:300}],
+  x:         [{value:"short",label:"Single Post (280 chars)",words:1},{value:"medium",label:"Thread (3 posts)",words:3}],
+  blog:      [{value:"short",label:"Short (~400 words)",words:400},{value:"medium",label:"Medium (~800 words)",words:800},{value:"long",label:"Long (~1500 words)",words:1500}],
+  youtube:   [{value:"short",label:"Short desc (~150 words)",titleWords:8,descWords:150},{value:"medium",label:"Medium desc (~300 words)",titleWords:10,descWords:300},{value:"long",label:"Long desc (~500 words)",titleWords:12,descWords:500}],
+};
+const DEFAULT_CHANNELS = [
+  { id:"linkedin", label:"LinkedIn", type:"post", short:"LI", color:"#0077B5", enabled:false, post_url:"https://www.linkedin.com/feed/?shareActive=true", sort_order:0 },
+  { id:"instagram", label:"Instagram", type:"post", short:"IG", color:"#C13584", enabled:false, post_url:"https://www.instagram.com/create/story/", sort_order:1 },
+  { id:"facebook", label:"Facebook", type:"post", short:"FB", color:"#1877F2", enabled:false, post_url:"https://www.facebook.com/", sort_order:2 },
+  { id:"x", label:"X / Twitter", type:"post", short:"X", color:"#14171A", enabled:false, post_url:"https://twitter.com/intent/tweet", sort_order:3 },
+  { id:"blog", label:"Blog", type:"post", short:"BL", color:"#8B5CF6", enabled:false, post_url:"", sort_order:4 },
+  { id:"youtube", label:"YouTube", type:"video", short:"YT", color:"#FF0000", enabled:false, post_url:"https://studio.youtube.com/", sort_order:5 },
+];
+
+function ChannelsPanel({ clientId }) {
+  const [channels, setChannels] = useState(DEFAULT_CHANNELS.map(c=>({...c})));
+  const [msg, setMsg]           = useState("");
+
+  useEffect(() => {
+    api(`/api/admin/channels?client_id=${clientId}`).then(({ data }) => {
+      if (!Array.isArray(data.channels) || data.channels.length === 0) return;
+      setChannels(prev => prev.map(def => {
+        const saved = data.channels.find(s=>s.channel_id===def.id);
+        if (!saved) return def;
+        return { ...def, label:saved.label||def.label, post_url:saved.post_url||def.post_url, enabled:saved.enabled };
+      }));
+    });
+  }, [clientId]);
+
+  const toggle = id => {
+    setChannels(cs => cs.map(c=>c.id===id?{...c,enabled:!c.enabled}:c));
+  };
+  const setField = (id, field) => e => {
+    setChannels(cs => cs.map(c=>c.id===id?{...c,[field]:e.target.value}:c));
+  };
+
+  const save = async () => {
+    const payload = channels.map(ch => ({
+      id: ch.id, label: ch.label, short: ch.short, color: ch.color,
+      type: ch.type, postUrl: ch.post_url||"", enabled: ch.enabled,
+      wordOptions: DEFAULT_WORD_OPTIONS[ch.id] || [],
+    }));
+    const { ok, data } = await api("/api/admin/channels", { method:"PUT", body:JSON.stringify({ client_id:clientId, channels:payload }) });
+    setMsg(ok ? "Channels saved!" : `Error: ${data.error}`);
+    setTimeout(()=>setMsg(""),4000);
+  };
+
+  return (
+    <SectionCard title="Channels">
+      {msg && <Toast msg={msg} type={msg.startsWith("Error")?"error":"success"}/>}
+      <div style={{display:"grid",gap:10}}>
+        {channels.map(ch => (
+          <div key={ch.id} style={{border:`1.5px solid ${ch.enabled?C.sage:C.borderL}`,borderRadius:8,padding:"12px 16px",background:ch.enabled?C.sageL:C.white,transition:"all 0.15s"}}>
+            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:ch.enabled?12:0}}>
+              <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",flex:1}}>
+                <div style={{width:40,height:22,borderRadius:11,background:ch.enabled?C.sage:C.border,position:"relative",transition:"background 0.2s",cursor:"pointer",flexShrink:0}} onClick={()=>toggle(ch.id)}>
+                  <div style={{position:"absolute",top:3,left:ch.enabled?20:3,width:16,height:16,borderRadius:"50%",background:C.white,transition:"left 0.2s",boxShadow:"0 1px 3px rgba(0,0,0,0.2)"}}/>
+                </div>
+                <span style={{fontWeight:700,fontSize:12,color:ch.color,width:30}}>{ch.short}</span>
+                <span style={{fontWeight:600,color:C.forest}}>{ch.label}</span>
+                <span style={{fontSize:11,padding:"2px 8px",background:C.white,border:`1px solid ${C.border}`,borderRadius:3,color:C.textMid}}>{ch.type}</span>
+              </label>
+              {!ch.enabled && <span style={{fontSize:11,color:C.textLight}}>Disabled</span>}
+            </div>
+            {ch.enabled && (
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
+                <Input label="Label" value={ch.label} onChange={setField(ch.id,"label")}/>
+                <Input label="Post URL (optional)" value={ch.post_url||""} onChange={setField(ch.id,"post_url")} placeholder="https://…"/>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      <div style={{marginTop:16}}><button onClick={save} style={btnP}>Save Channels</button></div>
+    </SectionCard>
+  );
+}
+
+// ── Post Types ────────────────────────────────────────────────────
+function PostTypesPanel({ clientId }) {
+  const [pts, setPts] = useState([{ value:"auto", label:"Auto (AI decides)", description:"Let the AI choose the best format", enabled:true }]);
+  const [msg, setMsg] = useState("");
+
+  useEffect(() => {
+    api(`/api/admin/post-types?client_id=${clientId}`).then(({ data }) => {
+      if (Array.isArray(data.postTypes) && data.postTypes.length) setPts(data.postTypes);
+    });
+  }, [clientId]);
+
+  const setField = (i, field) => e => setPts(prev => prev.map((p,j)=>j===i?{...p,[field]:e.target.value}:p));
+  const togglePt = i => setPts(prev => prev.map((p,j)=>j===i?{...p,enabled:!p.enabled}:p));
+  const add = () => setPts(p=>[...p,{value:`type${p.length}`,label:"New Type",description:"",enabled:true}]);
+  const del = i => setPts(p=>p.filter((_,j)=>j!==i));
+
+  const save = async () => {
+    const { ok, data } = await api("/api/admin/post-types", { method:"PUT", body:JSON.stringify({ client_id:clientId, postTypes:pts }) });
+    setMsg(ok?"Saved!": `Error: ${data.error}`);
+    setTimeout(()=>setMsg(""),4000);
+  };
+
+  return (
+    <SectionCard title="Post Types (Format Selector)" action={<button onClick={add} style={{...btnO,padding:"5px 12px",fontSize:11}}>+ Add Type</button>}>
+      {msg && <Toast msg={msg} type={msg.startsWith("Error")?"error":"success"}/>}
+      <div style={{display:"grid",gap:10}}>
+        {pts.map((pt,i) => (
+          <div key={i} style={{border:`1px solid ${C.borderL}`,borderRadius:7,padding:"12px 14px",background:C.white}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 2fr auto auto",gap:"0 10px",alignItems:"end"}}>
+              <Input label="Value (key)" value={pt.value} onChange={setField(i,"value")}/>
+              <Input label="Label" value={pt.label} onChange={setField(i,"label")}/>
+              <Input label="Description" value={pt.description} onChange={setField(i,"description")}/>
+              <div style={{marginBottom:12}}>
+                <div onClick={()=>togglePt(i)} style={{width:40,height:22,borderRadius:11,background:pt.enabled?C.sage:C.border,position:"relative",cursor:"pointer",transition:"background 0.2s"}}>
+                  <div style={{position:"absolute",top:3,left:pt.enabled?20:3,width:16,height:16,borderRadius:"50%",background:C.white,transition:"left 0.2s",boxShadow:"0 1px 3px rgba(0,0,0,0.2)"}}/>
+                </div>
+              </div>
+              <div style={{marginBottom:12}}>
+                <button onClick={()=>del(i)} style={{...btnD,padding:"5px 10px"}} disabled={pts.length<=1}>✕</button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{marginTop:12}}><button onClick={save} style={btnP}>Save Post Types</button></div>
+    </SectionCard>
+  );
+}
+
+// ── Prompts ───────────────────────────────────────────────────────
+function PromptsPanel({ clientId }) {
+  const [system, setSystem] = useState(""); const [image, setImage] = useState(""); const [msg, setMsg] = useState("");
+
+  useEffect(() => {
+    api(`/api/admin/prompts?client_id=${clientId}`).then(({ data }) => {
+      if (data.systemPrompt !== undefined) setSystem(data.systemPrompt);
+      if (data.imagePrompt !== undefined)  setImage(data.imagePrompt);
+    });
+  }, [clientId]);
+
+  const save = async () => {
+    const { ok, data } = await api("/api/admin/prompts", { method:"PUT", body:JSON.stringify({ client_id:clientId, systemPrompt:system, imagePrompt:image }) });
+    setMsg(ok?"Saved!": `Error: ${data.error}`);
+    setTimeout(()=>setMsg(""),4000);
+  };
+
+  return (
+    <SectionCard title="Prompts (Admin Only)">
+      {msg && <Toast msg={msg} type={msg.startsWith("Error")?"error":"success"}/>}
+      <TextArea label="System Prompt (writing instructions)" value={system} onChange={e=>setSystem(e.target.value)} rows={12}/>
+      <TextArea label="Image Prompt Prefix (prepended to generated image prompt)" value={image} onChange={e=>setImage(e.target.value)} rows={3}/>
+      <button onClick={save} style={btnP}>Save Prompts</button>
+    </SectionCard>
+  );
+}
+
+// ── AI Config ─────────────────────────────────────────────────────
+function AIConfigPanel({ clientId }) {
+  const [form, setForm] = useState({ provider:"anthropic", model:"claude-opus-5", api_key:"" });
+  const [apiKeySet, setApiKeySet] = useState(false);
+  const [msg, setMsg]   = useState("");
+  const set = k => e => setForm(f=>({...f,[k]:e.target.value}));
+
+  const providerModels = {
+    anthropic: ["claude-sonnet-4-6","claude-opus-5","claude-sonnet-5"],
+    openai:    ["gpt-4o","gpt-4o-mini","gpt-4-turbo"],
+    gemini:    ["gemini-1.5-pro","gemini-1.5-flash","gemini-2.0-flash-exp"],
+  };
+
+  useEffect(() => {
+    api(`/api/admin/ai-config?client_id=${clientId}`).then(({ data }) => {
+      if (data.provider) {
+        setForm(f=>({...f, provider:data.provider||"anthropic", model:data.model||"" }));
+        setApiKeySet(!!data.apiKeySet);
+      }
+    });
+  }, [clientId]);
+
+  const save = async () => {
+    const body = { client_id:clientId, provider:form.provider, model:form.model };
+    if (form.api_key) body.api_key = form.api_key;
+    const { ok, data } = await api("/api/admin/ai-config", { method:"PUT", body:JSON.stringify(body) });
+    if (ok) { setApiKeySet(true); setForm(f=>({...f,api_key:""})); }
+    setMsg(ok?"Saved!": `Error: ${data.error}`);
+    setTimeout(()=>setMsg(""),4000);
+  };
+
+  const models = providerModels[form.provider] || [];
+
+  return (
+    <SectionCard title="AI Provider & Model">
+      {msg && <Toast msg={msg} type={msg.startsWith("Error")?"error":"success"}/>}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 20px"}}>
+        <Select label="AI Provider" value={form.provider}
+          onChange={e=>setForm(f=>({...f,provider:e.target.value,model:providerModels[e.target.value]?.[0]||""}))}
+          options={[{value:"anthropic",label:"Anthropic (Claude)"},{value:"openai",label:"OpenAI (GPT)"},{value:"gemini",label:"Google (Gemini)"}]}/>
+        <Select label="Model" value={form.model} onChange={set("model")}
+          options={models.map(m=>({value:m,label:m}))}/>
+      </div>
+      <div style={{marginBottom:12}}>
+        <label style={{display:"block",fontSize:11,letterSpacing:"1.5px",textTransform:"uppercase",color:C.textMid,marginBottom:5}}>
+          API Key {apiKeySet && <span style={{color:C.sage,marginLeft:6,fontWeight:600}}>✓ Key stored (enter new to replace)</span>}
+        </label>
+        <input type="password" value={form.api_key} onChange={set("api_key")} placeholder={apiKeySet?"Enter new key to replace…":"Enter API key…"} style={inp}/>
+        <div style={{fontSize:11,color:C.textLight,marginTop:4}}>Stored encrypted with AES-256-GCM. Never visible again after saving.</div>
+      </div>
+      <button onClick={save} style={btnP}>Save AI Config</button>
+    </SectionCard>
+  );
+}
+
+// ── Access / Users ────────────────────────────────────────────────
+function AccessPanel({ clientId }) {
+  const [users, setUsers] = useState([]);
+  const [username, setUsername] = useState("");
+  const [newCred, setNewCred]   = useState(null);
+  const [resetCred, setResetCred] = useState(null);
+  const [msg, setMsg]           = useState("");
+
+  const load = async () => {
+    const { data } = await api(`/api/admin/users?client_id=${clientId}`);
+    setUsers(Array.isArray(data.users) ? data.users : []);
+  };
+  useEffect(() => { load(); }, [clientId]);
+
+  const create = async () => {
+    if (!username) return;
+    const { ok, data } = await api("/api/admin/users", { method:"POST", body:JSON.stringify({ client_id:clientId, username }) });
+    if (ok) { setNewCred(data); setUsername(""); load(); }
+    else setMsg(`Error: ${data.error}`);
+    setTimeout(()=>setMsg(""),5000);
+  };
+
+  const resetPassword = async (uname) => {
+    const { ok, data } = await api("/api/admin/users", { method:"PUT", body:JSON.stringify({ username:uname }) });
+    if (ok) setResetCred(data);
+    else setMsg(`Error: ${data.error}`);
+  };
+
+  const CredBox = ({ cred, label }) => (
+    <div style={{background:"#FFFBEB",border:"1px solid #F59E0B",borderRadius:6,padding:"12px 16px",marginBottom:12}}>
+      <div style={{fontWeight:600,fontSize:12,color:"#92400E",marginBottom:8}}>⚠ {label} — Save this now. It won't show again.</div>
+      <div style={{fontFamily:"monospace",fontSize:13,lineHeight:2}}>
+        <div>Username: <strong>{cred.username}</strong></div>
+        <div>Password: <strong>{cred.password}</strong></div>
+      </div>
+      <button onClick={()=>{ navigator.clipboard.writeText(`Username: ${cred.username}\nPassword: ${cred.password}`); }} style={{...btnO,marginTop:8,padding:"5px 12px",fontSize:11}}>Copy Credentials</button>
+    </div>
+  );
+
+  return (
+    <SectionCard title="User Access">
+      {newCred  && <CredBox cred={newCred}   label="New user created"/>}
+      {resetCred && <CredBox cred={resetCred} label="Password reset"/>}
+      {msg && <Toast msg={msg} type="error"/>}
+
+      <div style={{display:"flex",gap:10,alignItems:"end",marginBottom:20}}>
+        <div style={{flex:1}}><Input label="New Username" value={username} onChange={e=>setUsername(e.target.value)} placeholder="e.g. adarsh"/></div>
+        <div style={{marginBottom:12}}><button onClick={create} disabled={!username} style={btnP}>Create User</button></div>
+      </div>
+
+      {users.length===0 ? <div style={{color:C.textLight,fontSize:13}}>No users yet.</div> :
+        <table style={{width:"100%",borderCollapse:"collapse"}}>
+          <thead><tr style={{background:C.sageL}}>
+            {["Username","Created","Last Login",""].map(h=><th key={h} style={{padding:"8px 12px",textAlign:"left",fontSize:10,letterSpacing:"1.5px",textTransform:"uppercase",color:C.textMid,borderBottom:`1px solid ${C.border}`}}>{h}</th>)}
+          </tr></thead>
+          <tbody>
+            {users.map((u,i)=>(
+              <tr key={u.id} style={{borderBottom:`1px solid ${C.borderL}`,background:i%2===0?C.white:C.cream}}>
+                <td style={{padding:"10px 12px",fontWeight:600}}>{u.username}</td>
+                <td style={{padding:"10px 12px",color:C.textMid,fontSize:12}}>{new Date(u.created_at).toLocaleDateString()}</td>
+                <td style={{padding:"10px 12px",color:C.textMid,fontSize:12}}>{u.last_login?new Date(u.last_login).toLocaleDateString():"Never"}</td>
+                <td style={{padding:"10px 12px"}}><button onClick={()=>resetPassword(u.username)} style={{...btnD,padding:"4px 10px"}}>Reset Password</button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      }
+    </SectionCard>
+  );
+}
+
+// ── Usage ─────────────────────────────────────────────────────────
+function UsagePanel({ clientId }) {
+  const [rows, setRows]     = useState([]);
+  const [summary, setSummary] = useState([]);
+  const [from, setFrom]     = useState("");
+  const [to, setTo]         = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    let q = `/api/admin/usage?${clientId?`client_id=${clientId}&`:""}`;
+    if (from) q += `from=${from}&`;
+    if (to)   q += `to=${to}&`;
+    const { data } = await api(q);
+    setRows(Array.isArray(data.usage) ? data.usage : []);
+    setSummary(Array.isArray(data.summary) ? data.summary : []);
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, [clientId]);
+
+  return (
+    <div>
+      <SectionCard title="Summary" >
+        {summary.length === 0 ? <div style={{color:C.textLight,fontSize:13}}>No data yet.</div> :
+          <table style={{width:"100%",borderCollapse:"collapse"}}>
+            <thead><tr style={{background:C.sageL}}>
+              {["Client","Generations","Tokens In","Tokens Out","Est. Cost"].map(h=><th key={h} style={{padding:"8px 12px",textAlign:"left",fontSize:10,letterSpacing:"1.5px",textTransform:"uppercase",color:C.textMid,borderBottom:`1px solid ${C.border}`}}>{h}</th>)}
+            </tr></thead>
+            <tbody>
+              {summary.map((s,i)=>{
+                const cost = ((s.tokens_in/1000000)*3 + (s.tokens_out/1000000)*15).toFixed(4);
+                return (
+                  <tr key={s.client_id} style={{borderBottom:`1px solid ${C.borderL}`,background:i%2===0?C.white:C.cream}}>
+                    <td style={{padding:"10px 12px",fontWeight:600}}>{s.client_id}</td>
+                    <td style={{padding:"10px 12px",color:C.textMid}}>{s.generations}</td>
+                    <td style={{padding:"10px 12px",color:C.textMid}}>{s.tokens_in?.toLocaleString()}</td>
+                    <td style={{padding:"10px 12px",color:C.textMid}}>{s.tokens_out?.toLocaleString()}</td>
+                    <td style={{padding:"10px 12px",color:C.forest,fontWeight:600}}>${cost}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        }
+      </SectionCard>
+
+      <SectionCard title="Generation Log" action={
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          <input type="date" value={from} onChange={e=>setFrom(e.target.value)} style={{...inp,width:140,fontSize:12,padding:"5px 8px"}}/>
+          <span style={{color:C.textLight,fontSize:12}}>to</span>
+          <input type="date" value={to} onChange={e=>setTo(e.target.value)} style={{...inp,width:140,fontSize:12,padding:"5px 8px"}}/>
+          <button onClick={load} style={{...btnO,padding:"5px 12px",fontSize:11}}>{loading?"…":"Filter"}</button>
+        </div>
+      }>
+        {rows.length===0 ? <div style={{color:C.textLight,fontSize:13}}>No generations yet.</div> :
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse"}}>
+              <thead><tr style={{background:C.sageL}}>
+                {["Date","Client","User","Theme","Channels","Provider","In","Out"].map(h=><th key={h} style={{padding:"8px 12px",textAlign:"left",fontSize:10,letterSpacing:"1.5px",textTransform:"uppercase",color:C.textMid,borderBottom:`1px solid ${C.border}`,whiteSpace:"nowrap"}}>{h}</th>)}
+              </tr></thead>
+              <tbody>
+                {rows.map((r,i)=>(
+                  <tr key={r.id} style={{borderBottom:`1px solid ${C.borderL}`,background:i%2===0?C.white:C.cream}}>
+                    <td style={{padding:"9px 12px",color:C.textMid,fontSize:12,whiteSpace:"nowrap"}}>{new Date(r.created_at).toLocaleDateString()}</td>
+                    <td style={{padding:"9px 12px",fontWeight:600,fontSize:12}}>{r.client_id}</td>
+                    <td style={{padding:"9px 12px",color:C.textMid,fontSize:12}}>{r.username||"—"}</td>
+                    <td style={{padding:"9px 12px",maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:12}} title={r.theme_preview}>{r.theme_preview}</td>
+                    <td style={{padding:"9px 12px",color:C.textMid,fontSize:12}}>{(r.channels_used||[]).join(", ")}</td>
+                    <td style={{padding:"9px 12px",color:C.textMid,fontSize:12}}>{r.provider}</td>
+                    <td style={{padding:"9px 12px",color:C.textMid,fontSize:12}}>{r.tokens_in}</td>
+                    <td style={{padding:"9px 12px",color:C.textMid,fontSize:12}}>{r.tokens_out}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        }
+      </SectionCard>
+    </div>
+  );
+}
+
+// ── Main Admin App ────────────────────────────────────────────────
+const TABS = [
+  { key:"clients",  label:"Clients" },
+  { key:"branding", label:"Branding" },
+  { key:"channels", label:"Channels" },
+  { key:"postTypes",label:"Post Types" },
+  { key:"prompts",  label:"Prompts" },
+  { key:"ai",       label:"AI Config" },
+  { key:"access",   label:"Access" },
+  { key:"usage",    label:"Usage" },
+];
+
+function AdminApp() {
+  const [tab, setTab]           = useState("clients");
+  const [selectedClient, setSelectedClient] = useState(null);
+  const [authed, setAuthed]     = useState(() => {
+    try { const t=localStorage.getItem("iwly_admin_token"); if(!t) return false; const p=JSON.parse(atob(t.split(".")[1])); return p.role==="admin" && p.exp*1000>Date.now(); } catch { return false; }
+  });
+
+  const logout = () => { localStorage.removeItem("iwly_admin_token"); setAuthed(false); };
+
+  const selectClient = (id) => {
+    setSelectedClient(id);
+    if (tab === "clients") setTab("branding");
+  };
+
+  const clientTabs = TABS.filter(t => t.key !== "clients");
+  const showClientRequired = selectedClient === null && tab !== "clients";
+
+  if (!authed) return <AdminLogin onLogin={()=>setAuthed(true)}/>;
+
+  return (
+    <div style={{minHeight:"100vh",background:C.bg}}>
+      {/* Top nav */}
+      <div style={{background:C.white,borderBottom:`1px solid ${C.border}`,padding:"0 28px",display:"flex",alignItems:"center",justifyContent:"space-between",height:56,position:"sticky",top:0,zIndex:50}}>
+        <div style={{display:"flex",alignItems:"center",gap:16}}>
+          <div style={{width:36,height:36,borderRadius:8,background:C.sage,color:C.white,fontSize:14,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}}>A</div>
+          <div>
+            <div style={{fontWeight:700,fontSize:14,color:C.forest}}>iWriteLikeYou Admin</div>
+            {selectedClient && <div style={{fontSize:11,color:C.sageMid}}>Managing: <strong>{selectedClient}</strong> <span style={{cursor:"pointer",color:C.textLight,marginLeft:4}} onClick={()=>setSelectedClient(null)}>✕ clear</span></div>}
+          </div>
+        </div>
+        <button onClick={logout} style={{...btnD,border:"none",color:C.textMid,fontSize:12}}>Sign Out</button>
+      </div>
+
+      <div style={{display:"flex",maxWidth:1300,margin:"0 auto",padding:"20px 16px",gap:20}}>
+        {/* Sidebar */}
+        <div style={{width:180,flexShrink:0}}>
+          <div style={{background:C.white,border:`1px solid ${C.borderL}`,borderRadius:10,overflow:"hidden",position:"sticky",top:76}}>
+            <div style={{padding:"10px 0"}}>
+              {TABS.map(t => (
+                <button key={t.key} onClick={()=>setTab(t.key)}
+                  style={{width:"100%",textAlign:"left",padding:"10px 16px",border:"none",background:tab===t.key?C.sageL:"transparent",color:tab===t.key?C.forest:C.textMid,fontWeight:tab===t.key?700:400,cursor:"pointer",fontFamily:"inherit",fontSize:13,borderLeft:`3px solid ${tab===t.key?C.sage:"transparent"}`,transition:"all 0.1s"}}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div style={{flex:1,minWidth:0}}>
+          {showClientRequired && (
+            <div style={{background:"#FFFBEB",border:"1px solid #F59E0B",borderRadius:8,padding:"14px 20px",marginBottom:16,color:"#92400E",fontSize:13}}>
+              Select a client from the <strong>Clients</strong> tab before managing this section.
+            </div>
+          )}
+          {tab==="clients"  && <ClientsPanel onSelect={selectClient} selectedId={selectedClient}/>}
+          {tab==="branding" && selectedClient && <BrandingPanel clientId={selectedClient}/>}
+          {tab==="channels" && selectedClient && <ChannelsPanel clientId={selectedClient}/>}
+          {tab==="postTypes"&& selectedClient && <PostTypesPanel clientId={selectedClient}/>}
+          {tab==="prompts"  && selectedClient && <PromptsPanel clientId={selectedClient}/>}
+          {tab==="ai"       && selectedClient && <AIConfigPanel clientId={selectedClient}/>}
+          {tab==="access"   && selectedClient && <AccessPanel clientId={selectedClient}/>}
+          {tab==="usage"    && <UsagePanel clientId={selectedClient}/>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(AdminApp));
+</script>
+</body>
+</html>

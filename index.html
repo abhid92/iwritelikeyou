@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>iWriteLikeYou</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Georgia','Times New Roman',serif;}
+::-webkit-scrollbar{width:5px;}
+::-webkit-scrollbar-thumb{background:#CCDDD6;border-radius:3px;}
+select{appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236B8F7E' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback } = React;
+
+const clientId = new URLSearchParams(location.search).get("c") || "";
+
+// ── helpers ──────────────────────────────────────────────────────
+function writeToClipboard(text) {
+  if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text).catch(()=>execCopy(text));
+  execCopy(text); return Promise.resolve();
+}
+function execCopy(text) {
+  const el = document.createElement("textarea");
+  el.value=text; el.style.cssText="position:fixed;top:-9999px;opacity:0;";
+  document.body.appendChild(el); el.focus(); el.select();
+  try{document.execCommand("copy");}catch{}
+  document.body.removeChild(el);
+}
+async function api(path, opts={}) {
+  const token = localStorage.getItem("iwly_token");
+  const headers = { "Content-Type":"application/json", ...(token?{Authorization:`Bearer ${token}`}:{}) };
+  const r = await fetch(path, { headers, ...opts });
+  const d = await r.json().catch(()=>({}));
+  return { ok: r.ok, data: d };
+}
+
+function parseOutputs(raw, channels) {
+  const results = {};
+  channels.forEach(ch => {
+    const rx = new RegExp(
+      `PLATFORM:\\s*${ch.label}[^\\n]*\\r?\\nPOST TYPE:\\s*(.*?)\\r?\\n(?:IMAGE_(?:PROMPT|QUERY):\\s*(.*?)\\r?\\n)?-{3}\\r?\\n([\\s\\S]*?)\\n-{3}`, "i"
+    );
+    const m = raw.match(rx);
+    if (!m) return;
+    const body = m[3].trim();
+    if (ch.type === "video") {
+      const titleM = body.match(/^TITLE:\s*(.+)/im);
+      const descM  = body.match(/DESCRIPTION:\s*([\s\S]*?)(?:\nTAGS:|$)/i);
+      const tagsM  = body.match(/TAGS:\s*(.*)/i);
+      results[ch.id] = { type:"video", postType:m[1].trim(), imagePrompt:(m[2]||"").trim(),
+        title:titleM?titleM[1].trim():"", description:descM?descM[1].trim():body, tags:tagsM?tagsM[1].trim():"" };
+    } else {
+      const ht = body.match(/HASHTAGS:\s*(.*)/i);
+      results[ch.id] = { type:"post", postType:m[1].trim(), imagePrompt:(m[2]||"").trim(),
+        content:body.replace(/HASHTAGS:\s*.*/i,"").trim(), hashtags:ht?ht[1].trim():"" };
+    }
+  });
+  return results;
+}
+
+// ── Spinner ───────────────────────────────────────────────────────
+const Spinner = () => <span style={{display:"inline-block",width:14,height:14,border:"2px solid rgba(255,255,255,0.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"spin 0.7s linear infinite"}}/>
+
+// ── Login screen ──────────────────────────────────────────────────
+function Login({ cfg, onLogin }) {
+  const B = makeB(cfg);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState("");
+
+  const submit = async () => {
+    if (!username || !password) { setError("Enter username and password."); return; }
+    setLoading(true); setError("");
+    const { ok, data } = await api("/api/auth/login", {
+      method:"POST", body: JSON.stringify({ username, password })
+    });
+    setLoading(false);
+    if (ok) { localStorage.setItem("iwly_token", data.token); onLogin(data); }
+    else setError(data.error || "Login failed.");
+  };
+
+  const inp = { width:"100%", background:"#fff", border:`1px solid ${B.border}`, borderRadius:6, padding:"10px 13px", fontSize:14, fontFamily:"inherit", outline:"none", color:B.forest };
+
+  return (
+    <div style={{minHeight:"100vh",background:B.cream,display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div style={{background:"#fff",border:`1px solid ${B.borderLight}`,borderRadius:12,padding:36,width:360,boxShadow:"0 2px 16px rgba(61,107,90,0.1)"}}>
+        <div style={{textAlign:"center",marginBottom:24}}>
+          {cfg.logoUrl
+            ? <img src={cfg.logoUrl} style={{height:48,maxWidth:160,objectFit:"contain",marginBottom:12}} onError={e=>e.target.style.display="none"}/>
+            : <div style={{width:48,height:48,borderRadius:"50%",background:B.sage,color:"#fff",fontSize:20,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 12px"}}>{(cfg.brandTitle||"i").charAt(0)}</div>
+          }
+          <div style={{fontSize:18,fontWeight:600,color:B.forest}}>{cfg.brandTitle}</div>
+          <div style={{fontSize:12,color:B.textLight,marginTop:4}}>Sign in to continue</div>
+        </div>
+        <div style={{marginBottom:12}}>
+          <input value={username} onChange={e=>setUsername(e.target.value)} placeholder="Username"
+            style={inp} onFocus={e=>e.target.style.borderColor=B.sage} onBlur={e=>e.target.style.borderColor=B.border}/>
+        </div>
+        <div style={{marginBottom:16}}>
+          <input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password"
+            onKeyDown={e=>e.key==="Enter"&&submit()} style={inp}
+            onFocus={e=>e.target.style.borderColor=B.sage} onBlur={e=>e.target.style.borderColor=B.border}/>
+        </div>
+        {error && <div style={{fontSize:12,color:B.error,marginBottom:12}}>{error}</div>}
+        <button onClick={submit} disabled={loading} style={{width:"100%",padding:"11px",background:B.sage,color:"#fff",border:"none",borderRadius:6,fontSize:14,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+          {loading ? <><Spinner/> Signing in…</> : "Sign In"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Colour helper ─────────────────────────────────────────────────
+function makeB(cfg) {
+  return {
+    sage:cfg?.primaryColor||"#3D6B5A", gold:cfg?.accentColor||"#B8956A", cream:cfg?.bgColor||"#F7F3EE",
+    sageLight:"#E4EDEA", sageMid:"#6B8F7E", forest:"#2A3D35", textMid:"#5A7268", textLight:"#8FA89E",
+    border:"#CCDDD6", borderLight:"#DFE9E5", white:"#FFFFFF", error:"#C0392B", errorBg:"#FFF0EE", goldLight:"#F0E6D6",
+  };
+}
+
+// ── Generate page ─────────────────────────────────────────────────
+function Generate({ cfg, user, onLogout }) {
+  const B = makeB(cfg);
+  const CHANNELS   = cfg.channels   || [];
+  const POST_TYPES = cfg.postTypes  || [];
+  const POST_TYPE_INSTRUCTION = { auto:"", typeA:"Use TYPE A for ALL channels.", typeB:"Use TYPE B for ALL channels.", typeC:"Use TYPE C for ALL channels." };
+
+  const [view, setView]               = useState("generate");
+  const [theme, setTheme]             = useState("");
+  const [postType, setPostType]       = useState("auto");
+  const [detectedType, setDetectedType] = useState("");
+  const [activeChannels, setActiveChannels] = useState(CHANNELS.map(c=>c.id));
+  const [wordCounts, setWordCounts]   = useState(()=>{ const w={}; CHANNELS.forEach(c=>{ w[c.id]=c.id==="blog"?"medium":"short"; }); return w; });
+  const [loading, setLoading]         = useState(false);
+  const [loadStep, setLoadStep]       = useState("");
+  const [outputs, setOutputs]         = useState({});
+  const [regenLoading, setRegenLoading] = useState({});
+  const [rawFallback, setRawFallback] = useState("");
+  const [error, setError]             = useState("");
+  const [copied, setCopied]           = useState("");
+  const [sharedImage, setSharedImage] = useState(null);
+  const [imageLoading, setImageLoading] = useState(false);
+  const [imageError, setImageError]   = useState("");
+  const [imageSource, setImageSource] = useState("");
+  const [usageData, setUsageData]     = useState([]);
+  const [usageLoading, setUsageLoading] = useState(false);
+
+  const steps = ["Reading theme…","Selecting format…","Writing content…","Adapting channels…","Generating image…"];
+
+  const copy = (text, key) => { writeToClipboard(text).then(()=>{ setCopied(key); setTimeout(()=>setCopied(""),2000); }); };
+
+  const buildMsg = (channelList, typeOverride) => {
+    const sel = typeOverride || postType;
+    const inst = POST_TYPE_INSTRUCTION[sel] || "";
+    const wc = CHANNELS.filter(c=>activeChannels.includes(c.id)).map(c=>{
+      const opt = c.wordOptions?.find(o=>o.value===wordCounts[c.id]);
+      if (!opt) return "";
+      if (c.id==="x") return opt.value==="short"?`X: single post under 280 characters`:`X: thread of ${opt.words} posts numbered 1/ 2/ 3/`;
+      if (c.type==="video") return `${c.label}: title under ${opt.titleWords||10} words, description ~${opt.descWords||300} words`;
+      return `${c.label}: ~${opt.words} words`;
+    }).filter(Boolean).join(", ");
+    return `Theme: ${theme}${inst?"\nPost Type: "+inst:""}\nWord counts: ${wc}\n\nGenerate content for: ${channelList}\n\nFollow output format exactly.`;
+  };
+
+  const generate = async () => {
+    if (!theme.trim()) return;
+    setLoading(true); setOutputs({}); setRawFallback(""); setError("");
+    setSharedImage(null); setImageError(""); setDetectedType("");
+    let si=0; setLoadStep(steps[0]);
+    const iv = setInterval(()=>{ si=Math.min(si+1,3); setLoadStep(steps[si]); },1800);
+    const channelList = activeChannels.map(id=>CHANNELS.find(c=>c.id===id)?.label).filter(Boolean).join(", ");
+    try {
+      const { ok, data } = await api("/api/generate",{ method:"POST", body:JSON.stringify({ userMessage:buildMsg(channelList) }) });
+      if (!ok||data.error) throw new Error(data.error||"Generation failed.");
+      const raw = (data.content||[]).map(c=>c.text||"").join("\n");
+      const parsed = parseOutputs(raw, CHANNELS.filter(c=>activeChannels.includes(c.id)));
+      if (!Object.keys(parsed).length) { setRawFallback(raw); }
+      else {
+        setOutputs(parsed);
+        const firstKey = activeChannels[0];
+        if (parsed[firstKey]?.postType) setDetectedType(parsed[firstKey].postType);
+        clearInterval(iv); setLoadStep(steps[4]);
+        const imgPrompt = parsed[firstKey]?.imagePrompt || `calm setting, ${theme}`;
+        setImageLoading(true);
+        try {
+          const { data:imgData } = await api("/api/image",{ method:"POST", body:JSON.stringify({ prompt:imgPrompt }) });
+          if (imgData.warning) setImageError(`Note: ${imgData.warning}`);
+          setSharedImage(imgData.url||null); setImageSource(imgData.source||"");
+        } catch(e) { setImageError(`Image failed: ${e.message}`); }
+        finally { setImageLoading(false); }
+      }
+    } catch(e) { setError(e.message||"Failed."); }
+    finally { clearInterval(iv); setLoading(false); setLoadStep(""); }
+  };
+
+  const regenerate = async (channelId) => {
+    const ch = CHANNELS.find(c=>c.id===channelId); if (!ch) return;
+    setRegenLoading(r=>({...r,[channelId]:true}));
+    try {
+      const { ok, data } = await api("/api/generate",{ method:"POST", body:JSON.stringify({ userMessage:buildMsg(ch.label) }) });
+      if (!ok||data.error) throw new Error(data.error);
+      const raw = (data.content||[]).map(c=>c.text||"").join("\n");
+      const parsed = parseOutputs(raw, [ch]);
+      if (parsed[channelId]) setOutputs(p=>({...p,[channelId]:parsed[channelId]}));
+    } catch(e) { setError(`Regenerate failed: ${e.message}`); }
+    finally { setRegenLoading(r=>({...r,[channelId]:false})); }
+  };
+
+  const loadUsage = async () => {
+    setUsageLoading(true);
+    const { data } = await api("/api/usage");
+    setUsageData(Array.isArray(data.usage) ? data.usage : []);
+    setUsageLoading(false);
+  };
+  useEffect(()=>{ if(view==="usage") loadUsage(); },[view]);
+
+  const hasOutputs = Object.keys(outputs).length > 0;
+  const visibleChannels = CHANNELS.filter(c=>activeChannels.includes(c.id));
+  const inp = { width:"100%", background:"#fff", border:`1px solid ${B.border}`, borderRadius:6, padding:"10px 13px", fontSize:14, fontFamily:"inherit", outline:"none", color:B.forest };
+  const btnP = { background:B.sage, color:"#fff", border:"none", borderRadius:6, cursor:"pointer", fontWeight:600, fontFamily:"inherit" };
+  const btnO = { background:"#fff", color:B.sage, border:`1.5px solid ${B.sage}`, borderRadius:6, cursor:"pointer", fontWeight:600, fontFamily:"inherit" };
+  const btnG = { background:"transparent", color:B.textMid, border:`1px solid ${B.border}`, borderRadius:6, cursor:"pointer", fontFamily:"inherit" };
+  const card = { background:"#fff", border:`1px solid ${B.borderLight}`, borderRadius:10, overflow:"hidden", boxShadow:"0 1px 6px rgba(61,107,90,0.07)" };
+
+  return (
+    <div style={{minHeight:"100vh",background:B.cream,fontFamily:"'Georgia',serif",color:B.forest}}>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+
+      {/* Header */}
+      <div style={{background:"#fff",borderBottom:`1px solid ${B.border}`,padding:"0 28px",display:"flex",alignItems:"center",justifyContent:"space-between",height:58}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          {cfg.logoUrl
+            ? <img src={cfg.logoUrl} style={{height:36,maxWidth:120,objectFit:"contain",borderRadius:4}} onError={e=>e.target.style.display="none"}/>
+            : <div style={{width:36,height:36,borderRadius:"50%",background:B.sage,color:"#fff",fontSize:14,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}}>{(cfg.brandTitle||"i").charAt(0)}</div>
+          }
+          <div>
+            <div style={{fontSize:14,fontWeight:600,color:B.forest,lineHeight:1.2}}>{cfg.brandTitle}</div>
+            <div style={{fontSize:10,color:B.textLight,letterSpacing:"1.5px"}}>{(cfg.tagline||"").toUpperCase()}</div>
+          </div>
+        </div>
+        <div style={{display:"flex",gap:6,alignItems:"center"}}>
+          <button onClick={()=>setView(view==="usage"?"generate":"usage")} style={{...btnG,padding:"7px 14px",fontSize:11,letterSpacing:"1px"}}>
+            {view==="usage"?"← Back":"Usage"}
+          </button>
+          <button onClick={()=>{ localStorage.removeItem("iwly_token"); onLogout(); }} style={{...btnG,padding:"7px 14px",fontSize:11}}>
+            Sign Out
+          </button>
+        </div>
+      </div>
+
+      <div style={{maxWidth:1100,margin:"0 auto",padding:"28px 24px"}}>
+
+        {/* GENERATE VIEW */}
+        {view==="generate" && (
+          <div>
+            {cfg.aboutText && (
+              <div style={{background:B.sageLight,border:`1px solid ${B.borderLight}`,borderRadius:8,padding:"14px 18px",marginBottom:20,fontSize:13,color:B.textMid,lineHeight:1.7}}>
+                {cfg.aboutText}
+              </div>
+            )}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 240px auto",gap:14,alignItems:"end",marginBottom:16}}>
+              <div>
+                <label style={{display:"block",fontSize:10,letterSpacing:"2px",color:B.textLight,textTransform:"uppercase",marginBottom:7}}>Theme</label>
+                <textarea value={theme} onChange={e=>setTheme(e.target.value)} rows={4}
+                  placeholder="Enter a word, sentence, or paragraph — up to 150 words."
+                  style={{...inp,resize:"vertical",lineHeight:1.6}}
+                  onFocus={e=>e.target.style.borderColor=B.sage} onBlur={e=>e.target.style.borderColor=B.border}/>
+              </div>
+              <div>
+                <label style={{display:"block",fontSize:10,letterSpacing:"2px",color:B.textLight,textTransform:"uppercase",marginBottom:7}}>Post Format</label>
+                <select value={postType} onChange={e=>{setPostType(e.target.value);setDetectedType("");setOutputs({});}} style={{...inp,cursor:"pointer"}}>
+                  {POST_TYPES.map(t=><option key={t.value} value={t.value}>{t.value==="auto"&&detectedType?`Auto → ${detectedType}`:t.label}</option>)}
+                </select>
+                {detectedType && <div style={{fontSize:11,color:B.sageMid,marginTop:5}}>AI selected: <strong>{detectedType}</strong></div>}
+              </div>
+              <div>
+                <button onClick={generate} disabled={loading||!theme.trim()||!activeChannels.length}
+                  style={{...btnP,padding:"11px 24px",fontSize:14,whiteSpace:"nowrap",background:(loading||!theme.trim())?B.border:B.sage,color:(loading||!theme.trim())?B.textLight:"#fff",cursor:(loading||!theme.trim())?"not-allowed":"pointer"}}>
+                  {loading?loadStep:"Generate"}
+                </button>
+              </div>
+            </div>
+
+            {/* Channel toggles */}
+            <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:24}}>
+              <span style={{fontSize:10,color:B.textLight,letterSpacing:"2px",textTransform:"uppercase"}}>Channels:</span>
+              {CHANNELS.map(c=>{
+                const active = activeChannels.includes(c.id);
+                return (
+                  <button key={c.id} onClick={()=>setActiveChannels(p=>p.includes(c.id)?p.filter(x=>x!==c.id):[...p,c.id])}
+                    style={{padding:"6px 14px",background:active?B.sageLight:"#fff",border:`1.5px solid ${active?B.sage:B.border}`,borderRadius:20,cursor:"pointer",color:active?B.sage:B.textMid,fontSize:12,fontWeight:active?600:400,fontFamily:"inherit",display:"flex",alignItems:"center",gap:6}}>
+                    <span style={{fontSize:10,fontWeight:700,color:active?c.color:B.textLight}}>{c.short}</span>
+                    {c.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {error && <div style={{padding:"12px 16px",background:B.errorBg,border:`1px solid ${B.error}`,borderRadius:8,color:B.error,fontSize:13,marginBottom:16}}>{error}</div>}
+            {rawFallback && <div style={{...card,padding:20,marginBottom:16}}><div style={{fontSize:12,color:B.gold,marginBottom:8,fontWeight:600}}>Format mismatch — raw output shown.</div><pre style={{whiteSpace:"pre-wrap",fontSize:12,lineHeight:1.7,color:B.textMid,margin:0}}>{rawFallback}</pre></div>}
+
+            {/* Output grid */}
+            {(hasOutputs||imageLoading) && (
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+                {/* Image */}
+                <div style={card}>
+                  <div style={{padding:"10px 14px",borderBottom:`1px solid ${B.borderLight}`,background:B.sageLight,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                    <span style={{fontSize:13,fontWeight:600,color:B.forest}}>Post Image</span>
+                    <span style={{fontSize:10,color:B.textLight,letterSpacing:"1px",textTransform:"uppercase"}}>1024 × 1024</span>
+                  </div>
+                  {imageLoading && <div style={{padding:"60px 20px",textAlign:"center",color:B.textLight,fontSize:13}}>Generating image…</div>}
+                  {sharedImage && !imageLoading && (
+                    <div style={{position:"relative"}}>
+                      <img src={sharedImage} alt="AI" style={{width:"100%",aspectRatio:"1/1",objectFit:"cover",display:"block"}} onError={()=>{setImageError("Image failed.");setSharedImage(null);}}/>
+                      <div style={{position:"absolute",top:8,left:8,background:"rgba(42,61,53,0.72)",borderRadius:4,padding:"2px 8px",fontSize:10,color:"#fff"}}>{imageSource==="dalle"?"DALL-E 3":"AI Generated"}</div>
+                      <div style={{position:"absolute",bottom:8,right:8,display:"flex",gap:6}}>
+                        <button onClick={()=>copy(sharedImage,"img")} style={{...btnG,padding:"5px 10px",fontSize:10,background:"rgba(255,255,255,0.92)",border:"none",color:B.forest}}>{copied==="img"?"Copied!":"Copy URL"}</button>
+                      </div>
+                    </div>
+                  )}
+                  {!sharedImage&&!imageLoading && <div style={{padding:"60px 20px",textAlign:"center",color:B.textLight,fontSize:13}}>Image will appear after generation.</div>}
+                  {imageError && <div style={{padding:"10px 16px",background:B.errorBg,fontSize:12,color:B.error}}>{imageError}</div>}
+                </div>
+
+                {/* Channel cards */}
+                {visibleChannels.map(ch => {
+                  const out = outputs[ch.id]; if (!out) return null;
+                  const isRegen = regenLoading[ch.id];
+                  const ck = `c-${ch.id}`;
+
+                  const CardHead = ({children}) => (
+                    <div style={{padding:"10px 14px",borderBottom:`1px solid ${B.borderLight}`,background:B.sageLight}}>
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8}}>
+                          <span style={{fontSize:11,fontWeight:700,color:ch.color}}>{ch.short}</span>
+                          <span style={{fontSize:13,fontWeight:600,color:B.forest}}>{ch.label}</span>
+                          <span style={{fontSize:9,color:B.sageMid,letterSpacing:"0.8px",textTransform:"uppercase",padding:"2px 7px",background:"#fff",border:`1px solid ${B.border}`,borderRadius:3}}>{out.postType}</span>
+                        </div>
+                        <div style={{display:"flex",gap:6}}>{children}</div>
+                      </div>
+                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                        <select value={wordCounts[ch.id]} onChange={e=>setWordCounts(w=>({...w,[ch.id]:e.target.value}))}
+                          style={{...inp,padding:"4px 28px 4px 8px",fontSize:11,width:"auto",flex:1,color:B.textMid}}>
+                          {(ch.wordOptions||[]).map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
+                        </select>
+                        <button onClick={()=>regenerate(ch.id)} disabled={isRegen||!theme.trim()}
+                          style={{...btnG,padding:"4px 12px",fontSize:11,opacity:isRegen?0.6:1,whiteSpace:"nowrap"}}>{isRegen?"…":"Regenerate"}</button>
+                      </div>
+                    </div>
+                  );
+
+                  if (out.type === "video") return (
+                    <div key={ch.id} style={card}>
+                      <CardHead>
+                        {ch.postUrl && <button onClick={()=>{ copy(`${out.title}\n\n${out.description}${out.tags?"\n\n"+out.tags:""}`,`p-${ch.id}`); setTimeout(()=>window.open(ch.postUrl,"_blank"),200); }} style={{...btnO,padding:"6px 10px",fontSize:11}}>{copied===`p-${ch.id}`?"Paste now!":"Post"}</button>}
+                      </CardHead>
+                      <div style={{padding:16,maxHeight:380,overflowY:"auto"}}>
+                        {isRegen ? <div style={{textAlign:"center",padding:"40px 0",color:B.textLight,fontSize:13}}>Regenerating…</div> : <>
+                          <div style={{marginBottom:12}}>
+                            <div style={{fontSize:10,color:B.textLight,letterSpacing:"2px",textTransform:"uppercase",marginBottom:6,display:"flex",justifyContent:"space-between"}}>
+                              <span>Title</span><button onClick={()=>copy(out.title,`t-${ch.id}`)} style={{...btnG,padding:"2px 8px",fontSize:10,border:"none"}}>{copied===`t-${ch.id}`?"Copied!":"Copy"}</button>
+                            </div>
+                            <div style={{fontWeight:600,fontSize:15,lineHeight:1.4}}>{out.title}</div>
+                          </div>
+                          <div style={{marginBottom:12}}>
+                            <div style={{fontSize:10,color:B.textLight,letterSpacing:"2px",textTransform:"uppercase",marginBottom:6,display:"flex",justifyContent:"space-between"}}>
+                              <span>Description</span><button onClick={()=>copy(out.description,`d-${ch.id}`)} style={{...btnG,padding:"2px 8px",fontSize:10,border:"none"}}>{copied===`d-${ch.id}`?"Copied!":"Copy"}</button>
+                            </div>
+                            {out.description.split("\n\n").map((p,i)=>p.trim()?<p key={i} style={{marginBottom:8,lineHeight:1.6,fontSize:13}}>{p}</p>:null)}
+                          </div>
+                          {out.tags && <div><div style={{fontSize:10,color:B.textLight,letterSpacing:"2px",textTransform:"uppercase",marginBottom:4}}>Tags</div><div style={{color:B.sageMid,fontSize:12}}>{out.tags}</div></div>}
+                          <button onClick={()=>copy(`${out.title}\n\n${out.description}${out.tags?"\n\n"+out.tags:""}`,ck)} style={{...btnP,marginTop:14,padding:"6px 14px",fontSize:11,background:copied===ck?B.forest:B.sage}}>{copied===ck?"Copied!":"Copy All"}</button>
+                        </>}
+                      </div>
+                    </div>
+                  );
+
+                  const fullText = out.hashtags?`${out.content}\n\n${out.hashtags}`:out.content;
+                  return (
+                    <div key={ch.id} style={card}>
+                      <CardHead>
+                        <button onClick={()=>copy(fullText,ck)} style={{...btnP,padding:"6px 12px",fontSize:11,background:copied===ck?B.forest:B.sage}}>{copied===ck?"Copied!":"Copy"}</button>
+                        {ch.postUrl && <button onClick={()=>{ copy(fullText,`p-${ch.id}`); setTimeout(()=>window.open(ch.id==="x"?`https://twitter.com/intent/tweet?text=${encodeURIComponent(fullText.slice(0,270))}`:ch.postUrl,"_blank"),200); }} style={{...btnO,padding:"6px 10px",fontSize:11}}>{copied===`p-${ch.id}`?"Paste now!":"Post"}</button>}
+                      </CardHead>
+                      <div style={{padding:16,fontSize:14,color:B.forest,maxHeight:380,overflowY:"auto"}}>
+                        {isRegen ? <div style={{textAlign:"center",padding:"40px 0",color:B.textLight,fontSize:13}}>Regenerating…</div>
+                          : <>{out.content.split("\n\n").map((p,i)=>p.trim()?<p key={i} style={{marginBottom:10,lineHeight:1.6}}>{p.replace(/\n/g," ")}</p>:null)}
+                              {out.hashtags && <div style={{marginTop:12,color:B.sageMid,fontSize:12}}>{out.hashtags}</div>}</>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* USAGE VIEW */}
+        {view==="usage" && (
+          <div>
+            <div style={{fontSize:16,fontWeight:600,color:B.forest,marginBottom:20}}>My Usage</div>
+            {usageLoading ? <div style={{color:B.textLight,fontSize:13}}>Loading…</div> :
+              usageData.length === 0 ? <div style={{color:B.textLight,fontSize:13}}>No generations yet.</div> : (
+              <div style={{overflowX:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+                  <thead>
+                    <tr style={{background:B.sageLight}}>
+                      {["Date","Theme","Channels","Provider","Tokens In","Tokens Out"].map(h=>(
+                        <th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:10,letterSpacing:"1.5px",textTransform:"uppercase",color:B.textMid,borderBottom:`1px solid ${B.border}`}}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {usageData.map((r,i)=>(
+                      <tr key={r.id} style={{borderBottom:`1px solid ${B.borderLight}`,background:i%2===0?"#fff":B.cream}}>
+                        <td style={{padding:"10px 14px",color:B.textMid}}>{new Date(r.created_at).toLocaleDateString()}</td>
+                        <td style={{padding:"10px 14px",maxWidth:220,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.theme_preview}</td>
+                        <td style={{padding:"10px 14px",color:B.textMid}}>{(r.channels_used||[]).join(", ")}</td>
+                        <td style={{padding:"10px 14px",color:B.textMid}}>{r.provider}</td>
+                        <td style={{padding:"10px 14px",color:B.textMid}}>{r.tokens_in}</td>
+                        <td style={{padding:"10px 14px",color:B.textMid}}>{r.tokens_out}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div style={{textAlign:"center",padding:20,fontSize:11,color:B.textLight,borderTop:`1px solid ${B.borderLight}`,marginTop:40}}>
+        Powered by <strong>iWriteLikeYou</strong>
+      </div>
+    </div>
+  );
+}
+
+// ── Root ──────────────────────────────────────────────────────────
+function App() {
+  const [cfg, setCfg]   = useState(null);
+  const [cfgErr, setCfgErr] = useState("");
+  const [user, setUser] = useState(()=>{ try { const t=localStorage.getItem("iwly_token"); if(!t) return null; const p=JSON.parse(atob(t.split(".")[1])); return p.exp*1000>Date.now()?p:null; } catch { return null; } });
+
+  useEffect(()=>{
+    if (!clientId) { setCfgErr("No client specified. Add ?c=clientid to the URL."); return; }
+    fetch(`/api/config?c=${clientId}`).then(r=>r.json()).then(d=>{ if(d.error){setCfgErr(d.error);}else{setCfg(d);} }).catch(()=>setCfgErr("Failed to load config."));
+  },[]);
+
+  if (cfgErr) return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Georgia",color:"#c0392b",fontSize:14}}>{cfgErr}</div>;
+  if (!cfg)   return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Georgia",color:"#8FA89E",fontSize:13,letterSpacing:2}}>LOADING…</div>;
+  if (!user)  return <Login cfg={cfg} onLogin={u=>setUser(u)}/>;
+  return <Generate cfg={cfg} user={user} onLogout={()=>setUser(null)}/>;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
+</script>
+</body>
+</html>

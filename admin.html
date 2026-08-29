@@ -594,11 +594,11 @@ function UsagePanel({ clientId }) {
 // ── Main Admin App ────────────────────────────────────────────────
 const TABS = [
   { key:"clients",  label:"Clients" },
+  { key:"ai",       label:"AI Config" },
   { key:"branding", label:"Branding" },
   { key:"channels", label:"Channels" },
   { key:"postTypes",label:"Post Types" },
   { key:"prompts",  label:"Prompts" },
-  { key:"ai",       label:"AI Config" },
   { key:"access",   label:"Access" },
   { key:"usage",    label:"Usage" },
 ];
@@ -614,7 +614,7 @@ function AdminApp() {
 
   const selectClient = (id) => {
     setSelectedClient(id);
-    if (tab === "clients") setTab("branding");
+    if (tab === "clients") setTab("ai");
   };
 
   const clientTabs = TABS.filter(t => t.key !== "clients");

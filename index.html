@@ -66,6 +66,39 @@ function parseOutputs(raw, channels) {
   return results;
 }
 
+// ── Platform icons ────────────────────────────────────────────────
+function PlatformIcon({ id, size=16 }) {
+  const s = { width:size, height:size, display:"inline-block", flexShrink:0 };
+  if (id==="linkedin")  return <svg style={s} viewBox="0 0 24 24" fill="#0077B5"><path d="M20.5 2h-17A1.5 1.5 0 002 3.5v17A1.5 1.5 0 003.5 22h17a1.5 1.5 0 001.5-1.5v-17A1.5 1.5 0 0020.5 2zM8 19H5v-9h3zM6.5 8.25A1.75 1.75 0 118.3 6.5a1.78 1.78 0 01-1.8 1.75zM19 19h-3v-4.74c0-1.42-.6-1.93-1.38-1.93A1.74 1.74 0 0013 14.19a.66.66 0 000 .14V19h-3v-9h2.9v1.3a3.11 3.11 0 012.7-1.4c1.55 0 3.36.86 3.36 3.66z"/></svg>;
+  if (id==="instagram") return <svg style={s} viewBox="0 0 24 24"><defs><linearGradient id="ig-grad" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stopColor="#f09433"/><stop offset="50%" stopColor="#dc2743"/><stop offset="100%" stopColor="#bc1888"/></linearGradient></defs><path fill="url(#ig-grad)" d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>;
+  if (id==="facebook")  return <svg style={s} viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>;
+  if (id==="x")         return <svg style={s} viewBox="0 0 24 24" fill="#000"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.748l7.73-8.835L1.254 2.25H8.08l4.713 5.958zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>;
+  if (id==="blog")      return <svg style={s} viewBox="0 0 24 24" fill="#8B5CF6"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>;
+  if (id==="youtube")   return <svg style={s} viewBox="0 0 24 24" fill="#FF0000"><path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>;
+  return null;
+}
+
+// ── iWriteLikeU logo SVG ──────────────────────────────────────────
+function IWLULogo({ height=28 }) {
+  return (
+    <svg height={height} viewBox="0 0 220 52" xmlns="http://www.w3.org/2000/svg" style={{display:"block"}}>
+      <rect width="220" height="52" rx="8" fill="#1E3A2F"/>
+      {/* Speech bubble icon */}
+      <ellipse cx="22" cy="20" rx="10" ry="8" fill="none" stroke="#fff" strokeWidth="2"/>
+      <path d="M16 27 l2 5 l5-4" fill="#fff" stroke="#fff" strokeWidth="0.5" strokeLinejoin="round"/>
+      <ellipse cx="30" cy="26" rx="10" ry="8" fill="#B8956A"/>
+      <rect x="25" y="23" width="10" height="1.5" rx="0.75" fill="#fff"/>
+      <rect x="25" y="26.5" width="7" height="1.5" rx="0.75" fill="#fff"/>
+      <rect x="25" y="30" width="8.5" height="1.5" rx="0.75" fill="#fff"/>
+      {/* Wordmark */}
+      <text x="46" y="33" fontFamily="Georgia,serif" fontSize="20" fontStyle="italic" fontWeight="400" fill="#B8956A">i</text>
+      <text x="55" y="33" fontFamily="Georgia,serif" fontSize="20" fontWeight="700" fill="#fff">Write</text>
+      <text x="125" y="33" fontFamily="Georgia,serif" fontSize="20" fontWeight="400" fill="#fff">Like</text>
+      <text x="172" y="33" fontFamily="Georgia,serif" fontSize="20" fontWeight="700" fill="#B8956A">U</text>
+    </svg>
+  );
+}
+
 // ── Spinner ───────────────────────────────────────────────────────
 const Spinner = () => <span style={{display:"inline-block",width:14,height:14,border:"2px solid rgba(255,255,255,0.3)",borderTopColor:"#fff",borderRadius:"50%",animation:"spin 0.7s linear infinite"}}/>
 
@@ -297,7 +330,7 @@ function Generate({ cfg, user, onLogout }) {
                 return (
                   <button key={c.id} onClick={()=>setActiveChannels(p=>p.includes(c.id)?p.filter(x=>x!==c.id):[...p,c.id])}
                     style={{padding:"6px 14px",background:active?B.sageLight:"#fff",border:`1.5px solid ${active?B.sage:B.border}`,borderRadius:20,cursor:"pointer",color:active?B.sage:B.textMid,fontSize:12,fontWeight:active?600:400,fontFamily:"inherit",display:"flex",alignItems:"center",gap:6}}>
-                    <span style={{fontSize:10,fontWeight:700,color:active?c.color:B.textLight}}>{c.short}</span>
+                    <PlatformIcon id={c.id} size={14}/>
                     {c.label}
                   </button>
                 );
@@ -340,7 +373,7 @@ function Generate({ cfg, user, onLogout }) {
                     <div style={{padding:"10px 14px",borderBottom:`1px solid ${B.borderLight}`,background:B.sageLight}}>
                       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
                         <div style={{display:"flex",alignItems:"center",gap:8}}>
-                          <span style={{fontSize:11,fontWeight:700,color:ch.color}}>{ch.short}</span>
+                          <PlatformIcon id={ch.id} size={16}/>
                           <span style={{fontSize:13,fontWeight:600,color:B.forest}}>{ch.label}</span>
                           <span style={{fontSize:9,color:B.sageMid,letterSpacing:"0.8px",textTransform:"uppercase",padding:"2px 7px",background:"#fff",border:`1px solid ${B.border}`,borderRadius:3}}>{out.postType}</span>
                         </div>
@@ -360,7 +393,7 @@ function Generate({ cfg, user, onLogout }) {
                   if (out.type === "video") return (
                     <div key={ch.id} style={card}>
                       <CardHead>
-                        {ch.postUrl && <button onClick={()=>{ copy(`${out.title}\n\n${out.description}${out.tags?"\n\n"+out.tags:""}`,`p-${ch.id}`); setTimeout(()=>window.open(ch.postUrl,"_blank"),200); }} style={{...btnO,padding:"6px 10px",fontSize:11}}>{copied===`p-${ch.id}`?"Paste now!":"Post"}</button>}
+                        {ch.postUrl && <button onClick={()=>{ copy(`${out.title}\n\n${out.description}${out.tags?"\n\n"+out.tags:""}`,`p-${ch.id}`); setTimeout(()=>window.open(ch.postUrl,"_blank"),200); }} style={{...btnO,padding:"6px 10px",fontSize:11,display:"flex",alignItems:"center",gap:5}}><PlatformIcon id={ch.id} size={13}/>{copied===`p-${ch.id}`?"Paste now!":"Post"}</button>}
                       </CardHead>
                       <div style={{padding:16,maxHeight:380,overflowY:"auto"}}>
                         {isRegen ? <div style={{textAlign:"center",padding:"40px 0",color:B.textLight,fontSize:13}}>Regenerating…</div> : <>
@@ -388,7 +421,7 @@ function Generate({ cfg, user, onLogout }) {
                     <div key={ch.id} style={card}>
                       <CardHead>
                         <button onClick={()=>copy(fullText,ck)} style={{...btnP,padding:"6px 12px",fontSize:11,background:copied===ck?B.forest:B.sage}}>{copied===ck?"Copied!":"Copy"}</button>
-                        {ch.postUrl && <button onClick={()=>{ copy(fullText,`p-${ch.id}`); setTimeout(()=>window.open(ch.id==="x"?`https://twitter.com/intent/tweet?text=${encodeURIComponent(fullText.slice(0,270))}`:ch.postUrl,"_blank"),200); }} style={{...btnO,padding:"6px 10px",fontSize:11}}>{copied===`p-${ch.id}`?"Paste now!":"Post"}</button>}
+                        {ch.postUrl && <button onClick={()=>{ copy(fullText,`p-${ch.id}`); setTimeout(()=>window.open(ch.id==="x"?`https://twitter.com/intent/tweet?text=${encodeURIComponent(fullText.slice(0,270))}`:ch.postUrl,"_blank"),200); }} style={{...btnO,padding:"6px 10px",fontSize:11,display:"flex",alignItems:"center",gap:5}}><PlatformIcon id={ch.id} size={13}/>{copied===`p-${ch.id}`?"Paste now!":"Post"}</button>}
                       </CardHead>
                       <div style={{padding:16,fontSize:14,color:B.forest,maxHeight:380,overflowY:"auto"}}>
                         {isRegen ? <div style={{textAlign:"center",padding:"40px 0",color:B.textLight,fontSize:13}}>Regenerating…</div>
@@ -437,8 +470,9 @@ function Generate({ cfg, user, onLogout }) {
         )}
       </div>
 
-      <div style={{textAlign:"center",padding:20,fontSize:11,color:B.textLight,borderTop:`1px solid ${B.borderLight}`,marginTop:40}}>
-        Powered by <strong>iWriteLikeYou</strong>
+      <div style={{textAlign:"center",padding:"18px 20px",borderTop:`1px solid ${B.borderLight}`,marginTop:40,display:"flex",flexDirection:"column",alignItems:"center",gap:8}}>
+        <IWLULogo height={30}/>
+        <span style={{fontSize:10,color:B.textLight,letterSpacing:"1.5px",textTransform:"uppercase"}}>Powered by iWriteLikeU</span>
       </div>
     </div>
   );

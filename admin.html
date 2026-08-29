@@ -408,7 +408,7 @@ function AIConfigPanel({ clientId }) {
     const body = { client_id:clientId, provider:form.provider, model:form.model };
     if (form.api_key) body.api_key = form.api_key;
     const { ok, data } = await api("/api/admin/ai-config", { method:"PUT", body:JSON.stringify(body) });
-    if (ok) { setApiKeySet(true); setForm(f=>({...f,api_key:""})); }
+    if (ok) { if (form.api_key) setApiKeySet(true); setForm(f=>({...f,api_key:""})); }
     setMsg(ok?"Saved!": `Error: ${data.error}`);
     setTimeout(()=>setMsg(""),4000);
   };

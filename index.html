@@ -133,7 +133,6 @@ function Generate({ cfg, user, onLogout }) {
   const B = makeB(cfg);
   const CHANNELS   = cfg.channels   || [];
   const POST_TYPES = cfg.postTypes  || [];
-  const POST_TYPE_INSTRUCTION = { auto:"", typeA:"Use TYPE A for ALL channels.", typeB:"Use TYPE B for ALL channels.", typeC:"Use TYPE C for ALL channels." };
 
   const [view, setView]               = useState("generate");
   const [theme, setTheme]             = useState("");
@@ -161,7 +160,6 @@ function Generate({ cfg, user, onLogout }) {
 
   const buildMsg = (channelList, typeOverride) => {
     const sel = typeOverride || postType;
-    const inst = POST_TYPE_INSTRUCTION[sel] || "";
     const wc = CHANNELS.filter(c=>activeChannels.includes(c.id)).map(c=>{
       const opt = c.wordOptions?.find(o=>o.value===wordCounts[c.id]);
       if (!opt) return "";
@@ -169,7 +167,7 @@ function Generate({ cfg, user, onLogout }) {
       if (c.type==="video") return `${c.label}: title under ${opt.titleWords||10} words, description ~${opt.descWords||300} words`;
       return `${c.label}: ~${opt.words} words`;
     }).filter(Boolean).join(", ");
-    return `Theme: ${theme}${inst?"\nPost Type: "+inst:""}\nWord counts: ${wc}\n\nGenerate content for: ${channelList}\n\nFollow output format exactly.`;
+    return `Theme: ${theme}${sel && sel !== "auto" ? "\nPost Type: " + sel : ""}\nWord counts: ${wc}\n\nGenerate content for: ${channelList}\n\nFollow output format exactly.`;
   };
 
   const generate = async () => {

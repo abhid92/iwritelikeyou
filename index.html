@@ -491,7 +491,7 @@ function Generate({ cfg, user, onLogout }) {
 function App() {
   const [cfg, setCfg]   = useState(null);
   const [cfgErr, setCfgErr] = useState("");
-  const [user, setUser] = useState(()=>{ try { const t=localStorage.getItem("iwly_token"); if(!t) return null; const p=JSON.parse(atob(t.split(".")[1])); return p.exp*1000>Date.now()?p:null; } catch { return null; } });
+  const [user, setUser] = useState(()=>{ try { const t=localStorage.getItem("iwly_token"); if(!t) return null; const p=JSON.parse(atob(t.split(".")[1])); if(p.clientId!==clientId) return null; return p.exp*1000>Date.now()?p:null; } catch { return null; } });
 
   useEffect(()=>{
     if (!clientId) { setCfgErr("No client specified. Add ?c=clientid to the URL."); return; }

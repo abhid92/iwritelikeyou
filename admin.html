@@ -356,13 +356,60 @@ function PostTypesPanel({ clientId }) {
 }
 
 // ── Prompts ───────────────────────────────────────────────────────
+const SYSTEM_PROMPT_TEMPLATE = `## [CLIENT NAME] — CONTENT GENERATION
+
+### IDENTITY
+[Describe who the client is, their role, expertise, and who reads their content.]
+Voice: [calm / direct / authoritative / conversational]
+Reader feels: [what the reader experiences — seen / informed / challenged]
+
+### POST TYPES
+[Define 2–4 post types. DO NOT include word counts here — length is controlled by the word count dropdown.]
+TYPE A — [NAME]: [Structural description e.g. Scene > Observation > Principle > Close].
+TYPE B — [NAME]: [Structural description].
+
+### OPENING RULES
+- Never begin with "I"
+- Never begin with a question
+- First line must earn the second
+
+### BANNED
+Phrases: ["But here's the thing", "At the end of the day" — list phrases to avoid]
+Patterns: [numbered lists in reflective posts, motivational closings, etc.]
+
+### LENGTH RULE
+The user message contains "Word counts:" specifying the exact target length per platform.
+Always write to that word count. Do not compress or truncate.
+For long posts, expand the middle — more evidence, deeper insight. Do not add new sections.
+This overrides any other length assumption.
+
+### PLATFORM FORMAT
+LINKEDIN: Write to word count in "Word counts:". 3–5 lowercase hashtags. No emojis.
+INSTAGRAM: Write to word count in "Word counts:". Line break every 1–2 sentences. 8–15 hashtags.
+FACEBOOK: Write to word count in "Word counts:". 1–2 hashtags. Closing question encouraged.
+X: Under 280 chars OR thread numbered 1/ 2/ 3/. 1 hashtag max.
+BLOG: Write to word count in "Word counts:". Headline at top. No bullet lists. No hashtags.
+[Remove platforms not used by this client]
+
+### OUTPUT FORMAT (exact — do not modify this section)
+PLATFORM: [Platform Name]
+POST TYPE: [Post Type Name]
+IMAGE_PROMPT: [One sentence: visual scene, no people, no text, muted tones]
+---
+[Post content]
+---
+HASHTAGS: [if applicable, else omit this line]
+
+Repeat this block for every platform requested. No commentary outside the blocks.`;
+
 function PromptsPanel({ clientId }) {
   const [system, setSystem] = useState(""); const [image, setImage] = useState(""); const [msg, setMsg] = useState("");
 
   useEffect(() => {
     api(`/api/admin/prompts?client_id=${clientId}`).then(({ data }) => {
-      if (data.systemPrompt !== undefined) setSystem(data.systemPrompt);
-      if (data.imagePrompt !== undefined)  setImage(data.imagePrompt);
+      if (data.systemPrompt) setSystem(data.systemPrompt);
+      else setSystem(SYSTEM_PROMPT_TEMPLATE);
+      if (data.imagePrompt !== undefined) setImage(data.imagePrompt);
     });
   }, [clientId]);
 

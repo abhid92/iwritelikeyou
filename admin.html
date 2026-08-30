@@ -665,7 +665,7 @@ function AdminApp() {
           {tab==="prompts"  && selectedClient && <PromptsPanel clientId={selectedClient}/>}
           {tab==="ai"       && selectedClient && <AIConfigPanel clientId={selectedClient}/>}
           {tab==="access"   && selectedClient && <AccessPanel clientId={selectedClient}/>}
-          {tab==="usage"    && <UsagePanel clientId={selectedClient}/>}
+          {tab==="usage"    && <UsagePanel clientId={null}/>}
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 const { requireAdmin } = require("../lib/auth");
-const { get, post, patch, upsert } = require("../lib/supabase");
+const { get, post, patch, upsert, del } = require("../lib/supabase");
 const { encrypt } = require("../lib/crypto");
 const bcrypt = require("bcryptjs");
 
@@ -89,13 +89,14 @@ async function handleChannels(req, res) {
   if (req.method === "PUT") {
     const { channels } = req.body || {};
     if (!Array.isArray(channels)) return res.status(400).json({ error: "channels array required" });
+    await del(`client_channels?client_id=eq.${clientId}`);
     const rows = channels.map((ch, i) => ({
       client_id: clientId, channel_id: ch.id, label: ch.label, short_code: ch.short,
       color: ch.color || "#000000", channel_type: ch.type || "post", post_url: ch.postUrl || null,
       word_options: ch.wordOptions || [], sort_order: i, enabled: ch.enabled !== false,
     }));
-    const { data, ok } = await upsert("client_channels?on_conflict=client_id,channel_id", rows);
-    return res.status(ok ? 200 : 400).json(ok ? { channels: data } : { error: data });
+    if (rows.length) await post("client_channels", rows, "return=minimal");
+    return res.status(200).json({ success: true });
   }
   if (req.method === "PATCH") {
     const { channel_id, enabled } = req.body || {};
@@ -116,11 +117,12 @@ async function handlePostTypes(req, res) {
   if (req.method === "PUT") {
     const { postTypes } = req.body || {};
     if (!Array.isArray(postTypes)) return res.status(400).json({ error: "postTypes array required" });
+    await del(`client_post_types?client_id=eq.${clientId}`);
     const rows = postTypes.map((pt, i) => ({
       client_id: clientId, value: pt.value, label: pt.label,
       description: pt.description || "", enabled: pt.enabled !== false, sort_order: i,
     }));
-    await upsert("client_post_types?on_conflict=client_id,value", rows);
+    if (rows.length) await post("client_post_types", rows, "return=minimal");
     return res.status(200).json({ success: true });
   }
   return res.status(405).end();

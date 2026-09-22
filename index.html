@@ -144,6 +144,7 @@ function Login({ cfg, onLogin }) {
         </div>
         <div style={{marginBottom:12}}>
           <input value={username} onChange={e=>setUsername(e.target.value)} placeholder="Username"
+            autoCorrect="off" autoCapitalize="none" autoComplete="username"
             style={inp} onFocus={e=>e.target.style.borderColor=B.sage} onBlur={e=>e.target.style.borderColor=B.border}/>
         </div>
         <div style={{marginBottom:16}}>

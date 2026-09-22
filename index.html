@@ -54,6 +54,17 @@ async function api(path, opts={}) {
   return { ok: r.ok, data: d };
 }
 
+function calcCost(provider, tokensIn, tokensOut) {
+  const rates = {
+    anthropic: { in: 3.00,  out: 15.00 },
+    openai:    { in: 2.50,  out: 10.00 },
+    gemini:    { in: 1.25,  out:  5.00 },
+  };
+  const r = rates[(provider||"").toLowerCase()] || rates.anthropic;
+  const cost = ((tokensIn||0) * r.in + (tokensOut||0) * r.out) / 1_000_000;
+  return cost < 0.0001 ? "<$0.0001" : `$${cost.toFixed(4)}`;
+}
+
 function parseOutputs(raw, channels) {
   const results = {};
   channels.forEach(ch => {
@@ -456,7 +467,7 @@ function Generate({ cfg, user, onLogout }) {
                 <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
                   <thead>
                     <tr style={{background:B.sageLight}}>
-                      {["Date","Theme","Channels","Provider","Tokens In","Tokens Out"].map(h=>(
+                      {["Date","Theme","Channels","Provider","Est. Cost"].map(h=>(
                         <th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:10,letterSpacing:"1.5px",textTransform:"uppercase",color:B.textMid,borderBottom:`1px solid ${B.border}`}}>{h}</th>
                       ))}
                     </tr>
@@ -468,8 +479,7 @@ function Generate({ cfg, user, onLogout }) {
                         <td style={{padding:"10px 14px",maxWidth:220,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.theme_preview}</td>
                         <td style={{padding:"10px 14px",color:B.textMid}}>{(r.channels_used||[]).join(", ")}</td>
                         <td style={{padding:"10px 14px",color:B.textMid}}>{r.provider}</td>
-                        <td style={{padding:"10px 14px",color:B.textMid}}>{r.tokens_in}</td>
-                        <td style={{padding:"10px 14px",color:B.textMid}}>{r.tokens_out}</td>
+                        <td style={{padding:"10px 14px",color:B.textMid,fontVariantNumeric:"tabular-nums"}}>{calcCost(r.provider,r.tokens_in,r.tokens_out)}</td>
                       </tr>
                     ))}
                   </tbody>

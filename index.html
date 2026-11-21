@@ -69,7 +69,7 @@ function parseOutputs(raw, channels) {
   const results = {};
   channels.forEach(ch => {
     const rx = new RegExp(
-      `PLATFORM:\\s*${ch.label}[^\\n]*\\r?\\nPOST TYPE:\\s*(.*?)\\r?\\n(?:IMAGE_(?:PROMPT|QUERY):\\s*(.*?)\\r?\\n)?-{3}\\r?\\n([\\s\\S]*?)\\n-{3}(?=\\s*\\r?\\n(?:HASHTAGS:|PLATFORM:)|\\s*$)`, "i"
+      `PLATFORM:\\s*${ch.label}[^\\n]*\\r?\\nPOST TYPE:\\s*(.*?)\\r?\\n(?:IMAGE_(?:PROMPT|QUERY):\\s*(.*?)\\r?\\n)?(?:\\r?\\n)*-{3}\\r?\\n([\\s\\S]*?)\\n-{3}(?=\\s*\\r?\\n(?:HASHTAGS:|PLATFORM:)|\\s*$)`, "i"
     );
     const m = raw.match(rx);
     if (!m) return;
